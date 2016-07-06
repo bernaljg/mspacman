@@ -12,7 +12,7 @@ def extract_features(frame):
 class DRL_Model(object):
 
     def __init__(self):
-    
+        tf.placeholder(tf.float32    
     def find_best_action(self, observation):
     """This method makes a forward pass through the model to obtain the predicted Q values for different actions from the current observation"""
 
