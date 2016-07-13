@@ -13,7 +13,7 @@ import pickle
  
 def load_char_pickle():
     """Loads character templates"""
-    return pickle.load(open("characters.p","rb")) 
+    return pickle.load(open("characters.p","rb"),encoding='latin1') 
  
 def normalize_image(image): 
     """Scales images with RGB Channels

@@ -6,6 +6,7 @@ import gym
 import numpy as np
 from character_extraction import *
 import pickle
+import os
 
 class DRL_Model(object):
 
@@ -90,19 +91,18 @@ class DRL_Model(object):
 
 class Pacman_Agent(object):
 
-    def __init__(self, env):
+    def __init__(self):
+        env = gym.make('MsPacman-v0')
         self.env = env
         self.model = None
 
     def act(self, observation):
         """This method extracts features from pixel space and runs the policy to determine the next action.""" 
-        if self.model == None:
-            print("Learn First: Method self.learn()")
-        Q_vals,_,_,_,_ = self.forward_pass(observation)
+        Q_vals,_,_,_,_ = self.model.forward_pass(observation)
         action = np.argmax(Q_vals)
         return action
 
-    def learn(self, num_epochs, eps):
+    def train(self, num_epochs, eps):
         """This method updates the model object until the agent is a true MsPacman Playa"""
         self.model = DRL_Model(self.env)
         for i in range(num_epochs):
@@ -119,6 +119,11 @@ class Pacman_Agent(object):
             print("Done with {} epochs".format(i))
 
     def play(self):
+        if os.path.exists("trained_model.p"):
+            self.model = pickle.load(open("trained_model.p","rb"))
+        else:
+            print("Train model first using self.train()")
+            return
         done = False
         obs = self.env.reset()
         while not(done): 
