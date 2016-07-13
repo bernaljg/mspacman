@@ -10,9 +10,12 @@ import scipy as sp
 from sklearn import preprocessing 
 import scipy.ndimage 
 import pickle 
+import sys
  
 def load_char_pickle():
     """Loads character templates"""
+    if sys.version[0] == '2':
+        return pickle.load(open("characters.p","rb"))
     return pickle.load(open("characters.p","rb"),encoding='latin1') 
  
 def normalize_image(image): 

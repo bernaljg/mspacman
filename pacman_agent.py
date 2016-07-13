@@ -115,7 +115,7 @@ class Pacman_Agent(object):
             while not(done):
                 next_step, done = self.model.update_weights(observation, eps, next_step)
                 print(self.model.loss)
-            pickle.dump(self.model,open("trained_model.p","wb"))
+            pickle.dump(self.model,open("trained_model.p","wb"),2)
             print("Done with {} epochs".format(i))
 
     def play(self):
