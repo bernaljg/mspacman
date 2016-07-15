@@ -22,98 +22,134 @@ def normalize_image(image):
     """Scales images with RGB Channels
     
     args: Image
-    returns: Normalized image with respect to all its axes
+    returns: Normalized image with respect to each axis seperately
     """ 
-    image = image.astype('float32') 
-    image = image - np.mean(image)
-    image = image/np.std(image)
+    image = image.astype('float32')
+    means = np.mean(image,axis = (0,1))
+    stds = np.std(image, axis = (0,1))
+    for i in range(3):
+        m = means[i]
+        s = stds[i]
+        image[:,:,i] = image[:,:,i] - m 
+        image[:,:,i] = image[:,:,i]/s
      
     return image 
- 
-def find_characters(raw_frame, pacman_track): 
-    """Finds character locations by using convolution with templates
-    args: 
-        Raw Frame Data
-        Character Template Dictionary
-        Pacman Starting Point
+
+def in_range(num, rang):
+    return rang[0] < num < rang[1]
+
+class Tracker(object):
+
+    def __init__(self):
+        self.tracks = {'pac':(103,79), 'yellow':(86,79),'red':(56,79),'blue':(86,79),'purple':(86,79)}
+
+    def find_characters(self,raw_frame):
+        """Finds character locations by using convolution with templates
+        args: 
+            Raw Frame Data
+            Character Template Dictionary
+            Pacman Starting Point
+            
+        returns:
+            Dictionary with character locations
+        """
+        #Preprocessing Data 
+        raw_frame = raw_frame[:172]
+        raw_frame = normalize_image(raw_frame) 
+        pad = 50
+        raw_frame = np.pad(raw_frame,((pad,pad),(pad,pad), (0,0)),'constant',constant_values = 0)
+
+        characters = load_char_pickle()
         
-    returns:
-        Dictionary with character locations
-    """
-    #Preprocessing Data 
-    raw_frame = raw_frame[:172]
-    raw_frame = normalize_image(raw_frame) 
-    
-    #for i,image in enumerate(characters): 
-    #    characters[i] = normalize_image(image)
-    characters = load_char_pickle()
-    
-    #Formatting Game frame to match TensorFlow Convolution
-    raw_frame = np.array([raw_frame])
+        #Formatting Game frame to match TensorFlow Convolution
+        raw_frame = np.array([raw_frame])
 
-    character_filters = np.stack(characters, axis = 3)
+        character_filters = np.stack(characters, axis = 3)
 
-    #Setting up input tensors
-    game_tensor = tf.placeholder('float32',[1,172,160,3])
-    filters = tf.placeholder('float32',[12,8,3,5])
-    
-    #Setting up operations
-    conv = tf.nn.conv2d(game_tensor, filters, [1,1,1,1], 'SAME')
-    
-    #Running Session
-    with tf.Session() as sess:
-        conv_tensor = sess.run(conv,
-                 feed_dict={game_tensor: raw_frame, filters: character_filters})
-    
-    character_locs = {}
-    
-    #Finding maximum values for convolutions to get character locations
-    character_names = ['pac','yellow','red','blue','purple']
-    
-    #Looping through characters to make sure that locations are accurate
-    for i, key in enumerate(character_names):
-        if key == 'pac':
-            #Using Pacman's previous location to track it more accrately
-            location =  np.unravel_index(np.argmax(conv_tensor[0,pacman_track[0]-5:pacman_track[0]+5,pacman_track[1]-5:pacman_track[1]+5,i]),(10,10))
-            character_locs[key] = (pacman_track[0]-5 + location[0], pacman_track[1]-5 + location[1])      
-        else:
-            location = np.unravel_index(np.argmax(conv_tensor[0,:,:,i]),(172,160))
+        #Setting up input tensors
+        game_tensor = tf.placeholder('float32',[1,172 + 2*pad,160 + 2*pad,3])
+        filters = tf.placeholder('float32',[12,8,3,5])
+        
+        #Setting up operations
+        conv = tf.nn.conv2d(game_tensor, filters, [1,1,1,1], 'SAME')
+        
+        #Running Session
+        with tf.Session() as sess:
+            conv_tensor = sess.run(conv,
+                     feed_dict={game_tensor: raw_frame, filters: character_filters})
+        tf.reset_default_graph()
+
+        character_locs = {}
+        
+        #Finding maximum values for convolutions to get character locations
+        character_names = ['pac','yellow','red','blue','purple']
+
+        correct_values = [(300,500),(1400,1600),(600,800),(500,800),(500,800)]
+
+
+        #Looping through characters to make sure that locations are accurate
+        for i, key in enumerate(character_names):
+            window = 15
+            #Using Pacman's previous location to track it more accurately
             conv_max = np.max(conv_tensor[0,:,:,i])
-            if conv_max <= 200:
-                character_locs[key] = (0,0)
+            char_track = self.tracks[key]
+            possible_jump = False
+            if not(in_range(char_track[1], (10,150))) and (in_range(char_track[0],(45,60)) or in_range(char_track[0],(75,110))):
+                possible_jump = True
+
+            local_max = np.max(conv_tensor[0,char_track[0]-window+pad:char_track[0]+window+pad,char_track[1]-window+pad:char_track[1]+window+pad,i])
+            
+            if possible_jump:
+                #Portal Case
+                location =  np.unravel_index(np.argmax(conv_tensor[0,:,:,i]),(172 + 2*pad,160 + 2*pad))
+                location = (location[0] - pad, location[1] - pad)
+            
             else:
-                character_locs[key] = location
+                if not(in_range(local_max, correct_values[i])) and not(key=='pac'): 
+                    #Weird Ghost Case
+                    if not(in_range(conv_max, correct_values[i])): 
+                        #Disappearing Ghost Case
+                        location = self.tracks[key]
+                    else:
+                        #Lost ghost tracks because of obstacle or dissapearance, increases window size
+                        window = window*3
+                        tiny_conv = conv_tensor[0, char_track[0]-window+pad:char_track[0]+window+pad, char_track[1]-window+pad:char_track[1]+window + pad, i]
+                        location =  np.unravel_index(np.argmax(tiny_conv),(window*2, window*2))
+                        location = (char_track[0]-window + location[0], char_track[1]-window + location[1])       
+                else:
+                    #Normal Ghost Tracking and Pacman Case
+                    tiny_conv = conv_tensor[0, char_track[0]-window + pad:char_track[0]+window + pad, char_track[1]-window + pad:char_track[1]+window + pad, i]
+                    location =  np.unravel_index(np.argmax(tiny_conv),(window*2, window*2))
+                    location = (char_track[0]-window + location[0], char_track[1]-window + location[1])      
 
+            character_locs[key] = location
+        
+        self.tracks = character_locs
 
-    return character_locs
+    def extract_features(self, frame):    
+        """This function takes in a frame and extracts useful features to create a more manageable game state space"""
+        self.find_characters(frame)
+        character_locs = self.tracks
+        game_state = np.array([])
+        for i in character_locs.keys():
+            if i == 'pac':
+                game_state = np.append(game_state, character_locs[i])
+            else:
+                distance = (character_locs['pac'][0] - character_locs[i][0], character_locs['pac'][1] - character_locs[i][1])
 
-def extract_features(frame, pac_track = (103,79)):    
-    """This function takes in a frame and extracts useful features to create a more manageable game state space"""
-    character_locs = find_characters(frame, pac_track)
-    game_state = np.array([])
-    for i in character_locs.keys():
-        if i == 'pac':
-            game_state = np.append(game_state, character_locs[i])
-        else:
-            distance = (character_locs['pac'][0] - character_locs[i][0], character_locs['pac'][1] - character_locs[i][1])
-
-            game_state = np.append(game_state, distance)
-    return game_state
-
+                game_state = np.append(game_state, distance)
+        return game_state
 """
-Testing
+#Testing
 env = gym.make('MsPacman-v0')
 obs = env.reset()
 
-characters = load_char_pickle()
-init = (103,79)
+tracker = Tracker()
 
 for i in range(200):
-    character_locs = find_characters_tf(obs, characters,init)
+    tracker.find_characters(obs)
+    character_locs = tracker.tracks
     print(character_locs)
-    #plt.imshow(obs)
-    #plt.show()
+    env.render()
     action = env.action_space.sample()
-    obs = env.step(action)[0]
-    init = character_locs['pac']
-"""
+    obs = env.step(action)[0]"""

@@ -7,6 +7,7 @@ import numpy as np
 from character_extraction import *
 import pickle
 import os
+import time
 
 class DRL_Model(object):
 
@@ -16,22 +17,26 @@ class DRL_Model(object):
         self.w2 = np.random.random((9,30))
         self.lr = 0.0001
         
-    def forward_pass(self, observation):
+    def forward_pass(self, observation, tracker):
         """This method makes a forward pass through the model to obtain the predicted Q values for different actions from the current observation"""
-        game_state = extract_features(observation)
-
+        start = time.time()
+        game_state = tracker.extract_features(observation)
+        extract_time = time.time() - start
+        
+        start_decision = time.time()
         y1 = self.w1.dot(game_state)
         layer1_act = 1./(1.+np.exp(-y1))
 
         y2 = self.w2.dot(layer1_act)
         Q_vals = np.exp(y2)/np.sum(np.exp(y2))
-    
+        fp = time.time() - start_decision
+
         return Q_vals, y1, y2, layer1_act, game_state
 
-    def update_weights(self, observation, eps, previous_step = None):
+    def update_weights(self, observation, eps,tracker, previous_step = None):
         """This method updates the weights through backpropagation from a Q-Learning defined loss"""
         if previous_step == None:
-            Q_vals, y1, y2, layer1_act, state = self.forward_pass(observation)
+            Q_vals, y1, y2, layer1_act, state = self.forward_pass(observation,tracker)
         else:
             Q_vals, y1, y2, layer1_act, state = previous_step
 
@@ -47,7 +52,7 @@ class DRL_Model(object):
         
         self.reward += reward/1000.
 
-        new_Q_vals,new_y1,new_y2,new_layer1_act,new_game_state = self.forward_pass(new_observation)
+        new_Q_vals,new_y1,new_y2,new_layer1_act,new_game_state = self.forward_pass(new_observation, tracker)
         
         max_Q = np.max(new_Q_vals)            
         predicted_Q_vals = np.copy(Q_vals)
@@ -96,9 +101,9 @@ class Pacman_Agent(object):
         self.env = env
         self.model = None
 
-    def act(self, observation):
+    def act(self, observation, tracker):
         """This method extracts features from pixel space and runs the policy to determine the next action.""" 
-        Q_vals,_,_,_,_ = self.model.forward_pass(observation)
+        Q_vals,_,_,_,_ = self.model.forward_pass(observation, tracker)
         action = np.argmax(Q_vals)
         return action
 
@@ -112,9 +117,20 @@ class Pacman_Agent(object):
             observation = self.env.reset()
             next_step = None
             self.model.reward = 0
+            past_lives = np.copy(observation[172:184,10:40])
+            tracker = Tracker()
             while not(done):
-                next_step, done = self.model.update_weights(observation, eps, next_step)
-                print(self.model.loss)
+                next_step, done = self.model.update_weights(observation, eps,tracker, next_step)
+                curr_lives = observation[172:184,10:40]
+                if (past_lives != curr_lives).any():
+                    #Eaten by Ghost
+                    tracker = Tracker()
+                    for i in range(15):
+                        #Wait until game restarts
+                        action = self.env.action_space.sample()
+                        self.env.step(action)
+                past_lives = np.copy(curr_lives)
+
             pickle.dump(self.model,open("trained_model.p","wb"),2)
             print("Done with {} epochs".format(i))
 
@@ -125,8 +141,20 @@ class Pacman_Agent(object):
             print("Train model first using self.train()")
             return
         done = False
-        obs = self.env.reset()
+        observation = self.env.reset()
+        past_lives = np.copy(observation[172:184,10:40])
+        tracker = Tracker()
         while not(done): 
-            action = self.act(obs)
-            obs,_,done,_ = self.env.step(action)
+            curr_lives = observation[172:184,10:40]
+            if (past_lives != curr_lives).any():
+                #Eaten by Ghost
+                tracker = Tracker()
+                for i in range(15):
+                    #Wait until game restarts
+                    action = self.env.action_space.sample()
+                    self.env.step(action)
+                print("Restarting Tracking")
+            past_lives = np.copy(curr_lives)
+            action = self.act(observation, tracker)
+            observation,_,done,_ = self.env.step(action)
             self.env.render()
