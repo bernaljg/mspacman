@@ -143,7 +143,7 @@ class Pacman_Agent(object):
 
     def play(self):
         if os.path.exists("trained_model.p"):
-            self.model = pickle.load(open("trained_model 40.p","rb"))
+            self.model = pickle.load(open("trained_model.p","rb"))
         else:
             print("Train model first using self.train()")
             return
