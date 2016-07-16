@@ -45,13 +45,16 @@ class DRL_Model(object):
         #Epsilon Greedy
         if np.random.randn(1) <= eps:
             action = self.env.action_space.sample()
-
+        
         #Perform Action
         game_info = self.env.step(action)
         new_observation,reward,done,_ = game_info
         
-        if reward != 0 and self.reward > 0:
+        if self.reward < 0:
+            pass
+        else:
             self.reward = reward/10.
+        print(self.reward)
 
         new_Q_vals,new_y1,new_y2,new_layer1_act,new_game_state = self.forward_pass(new_observation, tracker)
         
@@ -122,7 +125,7 @@ class Pacman_Agent(object):
             done = False
             observation = self.env.reset()
             next_step = None
-            #self.model.reward = 0
+            self.model.reward = 0
             past_lives = np.copy(observation[172:184,10:40])
             tracker = Tracker()
             while not(done):
