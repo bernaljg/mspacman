@@ -50,7 +50,8 @@ class DRL_Model(object):
         game_info = self.env.step(action)
         new_observation,reward,done,_ = game_info
         
-        self.reward = reward/10.
+        if reward != 0 and self.reward > 0:
+            self.reward = reward/10.
 
         new_Q_vals,new_y1,new_y2,new_layer1_act,new_game_state = self.forward_pass(new_observation, tracker)
         
@@ -130,10 +131,12 @@ class Pacman_Agent(object):
                 if (past_lives != curr_lives).any():
                     #Eaten by Ghost
                     tracker = Tracker()
+                    self.model.reward = -50.
                     for i in range(15):
                         #Wait until game restarts
                         action = self.env.action_space.sample()
                         self.env.step(action)
+
                 past_lives = np.copy(curr_lives)
             if i%10 == 0:
                 pickle.dump(self.model,open("trained_model{}.p".format(i),"wb"),2)
