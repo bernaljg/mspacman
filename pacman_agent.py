@@ -13,8 +13,8 @@ class DRL_Model(object):
 
     def __init__(self, env):
         self.env = env
-        self.w1 = np.random.random((30,10))
-        self.w2 = np.random.random((9,30))
+        self.w1 = np.random.random((90,10))
+        self.w2 = np.random.random((9,90))
         self.lr = 0.0001
         
     def forward_pass(self, observation, tracker):
