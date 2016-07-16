@@ -1,4 +1,4 @@
 from pacman_agent import *
 
 p = Pacman_Agent()
-p.train(100,0.9)
+p.train(50,0.9,cont=False)

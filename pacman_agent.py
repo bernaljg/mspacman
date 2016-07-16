@@ -50,7 +50,7 @@ class DRL_Model(object):
         game_info = self.env.step(action)
         new_observation,reward,done,_ = game_info
         
-        self.reward += reward/1000.
+        self.reward = reward/10.
 
         new_Q_vals,new_y1,new_y2,new_layer1_act,new_game_state = self.forward_pass(new_observation, tracker)
         
@@ -107,16 +107,21 @@ class Pacman_Agent(object):
         action = np.argmax(Q_vals)
         return action
 
-    def train(self, num_epochs, eps):
+    def train(self, num_epochs, eps, cont =True):
         """This method updates the model object until the agent is a true MsPacman Playa"""
-        self.model = DRL_Model(self.env)
+        if cont and os.path.exists("trained_model.p"):
+            self.model = pickle.load(open("trained_model.p","rb"))
+            self.model.env = self.env
+        else:
+            self.model = DRL_Model(self.env)
+
         for i in range(num_epochs):
             if i%250 == 0:
                 eps = eps/1.5
             done = False
             observation = self.env.reset()
             next_step = None
-            self.model.reward = 0
+            #self.model.reward = 0
             past_lives = np.copy(observation[172:184,10:40])
             tracker = Tracker()
             while not(done):
@@ -130,13 +135,15 @@ class Pacman_Agent(object):
                         action = self.env.action_space.sample()
                         self.env.step(action)
                 past_lives = np.copy(curr_lives)
-
-            pickle.dump(self.model,open("trained_model.p","wb"),2)
+            if i%10 == 0:
+                pickle.dump(self.model,open("trained_model{}.p".format(i),"wb"),2)
             print("Done with {} epochs".format(i))
+            
+        pickle.dump(self.model,open("trained_model.p".format(i),"wb"),2)
 
     def play(self):
         if os.path.exists("trained_model.p"):
-            self.model = pickle.load(open("trained_model.p","rb"))
+            self.model = pickle.load(open("trained_model 40.p","rb"))
         else:
             print("Train model first using self.train()")
             return

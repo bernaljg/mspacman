@@ -136,8 +136,9 @@ class Tracker(object):
                 game_state = np.append(game_state, character_locs[i])
             else:
                 distance = (character_locs['pac'][0] - character_locs[i][0], character_locs['pac'][1] - character_locs[i][1])
-
+                
                 game_state = np.append(game_state, distance)
+        game_state = game_state/172. #Normalizing distances
         return game_state
 """
 #Testing
