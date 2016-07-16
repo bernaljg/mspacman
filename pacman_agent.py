@@ -50,12 +50,12 @@ class DRL_Model(object):
         game_info = self.env.step(action)
         new_observation,reward,done,_ = game_info
         
-        if self.reward < 0:
-            pass
+        if self.died:
+            self.reward = -5.
+            self.died = False
         else:
             self.reward = reward/10.
-        print(self.reward)
-
+        
         new_Q_vals,new_y1,new_y2,new_layer1_act,new_game_state = self.forward_pass(new_observation, tracker)
         
         max_Q = np.max(new_Q_vals)            
@@ -96,7 +96,7 @@ class DRL_Model(object):
         self.w2 -= dL_dw2
         
         next_step = (new_Q_vals, new_y1, new_y2, new_layer1_act, new_game_state)
-        return next_step, done
+        return next_step, done, new_observation
 
 class Pacman_Agent(object):
 
@@ -128,18 +128,18 @@ class Pacman_Agent(object):
             self.model.reward = 0
             past_lives = np.copy(observation[172:184,10:40])
             tracker = Tracker()
+            self.model.died = False
             while not(done):
-                next_step, done = self.model.update_weights(observation, eps,tracker, next_step)
+                next_step, done, observation = self.model.update_weights(observation, eps,tracker, next_step)
                 curr_lives = observation[172:184,10:40]
                 if (past_lives != curr_lives).any():
                     #Eaten by Ghost
                     tracker = Tracker()
-                    self.model.reward = -50.
-                    for i in range(15):
+                    self.model.died = True
+                    for j in range(15):
                         #Wait until game restarts
                         action = self.env.action_space.sample()
                         self.env.step(action)
-
                 past_lives = np.copy(curr_lives)
             if i%10 == 0:
                 pickle.dump(self.model,open("trained_model{}.p".format(i),"wb"),2)
@@ -159,6 +159,7 @@ class Pacman_Agent(object):
         tracker = Tracker()
         while not(done): 
             curr_lives = observation[172:184,10:40]
+
             if (past_lives != curr_lives).any():
                 #Eaten by Ghost
                 tracker = Tracker()
