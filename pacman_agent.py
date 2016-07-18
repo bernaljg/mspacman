@@ -51,10 +51,12 @@ class DRL_Model(object):
         new_observation,reward,done,_ = game_info
         
         if self.died:
-            self.reward = -5.
+            self.reward = -10.
             self.died = False
-        else:
+        elif reward != 0:
             self.reward = reward/10.
+        else:
+            self.reward = self.reward
         
         new_Q_vals,new_y1,new_y2,new_layer1_act,new_game_state = self.forward_pass(new_observation, tracker)
         
@@ -141,7 +143,7 @@ class Pacman_Agent(object):
                         action = self.env.action_space.sample()
                         self.env.step(action)
                 past_lives = np.copy(curr_lives)
-            if i%10 == 0:
+            if i%50 == 0:
                 pickle.dump(self.model,open("trained_model{}.p".format(i),"wb"),2)
             print("Done with {} epochs".format(i))
             
