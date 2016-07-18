@@ -122,8 +122,8 @@ class Pacman_Agent(object):
             self.model = DRL_Model(self.env)
 
         for i in range(num_epochs):
-            if i%250 == 0:
-                eps = eps/1.5
+            #if i%250 == 0:
+            #    eps = eps/1.5
             done = False
             observation = self.env.reset()
             next_step = None
