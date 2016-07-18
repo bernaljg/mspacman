@@ -39,11 +39,11 @@ class DRL_Model(object):
             Q_vals, y1, y2, layer1_act, state = self.forward_pass(observation,tracker)
         else:
             Q_vals, y1, y2, layer1_act, state = previous_step
-
+        print(state)
         action = np.argmax(Q_vals)
         
         #Epsilon Greedy
-        if np.random.randn(1) <= eps:
+        if np.random.random_sample() <= eps:
             action = self.env.action_space.sample()
         
         #Perform Action
