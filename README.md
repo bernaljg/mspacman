@@ -9,3 +9,7 @@ pacman_agent.py contains two classes
   DRL Model is a class that stores the weights used in the Deep Q learning algorithm. Each Pacman Agent instance has a DRL Model instance.
   
 The trained model is stored in a pickle file called trained_model.p
+
+Running train_pacman.py trains a model for the amount of epochs specified in the file.
+
+Running play_pacman.py plays and renders the game using the current trained_model.p
