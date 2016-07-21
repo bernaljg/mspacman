@@ -1,7 +1,3 @@
-"""
-This notebook will be used to test the MsPacman OpenAI Gym environment for feature extraction.
-"""
-
 import tensorflow as tf 
 import gym 
 import numpy as np 
